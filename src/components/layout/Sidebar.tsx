@@ -8,7 +8,9 @@ import {
   FlaskConical,
   CreditCard,
   LayoutDashboard,
+  type LucideIcon,
 } from "lucide-react";
+import { cn } from "../../lib/utils";
 
 export type NavTab =
   | "dashboard"
@@ -20,48 +22,78 @@ export type NavTab =
   | "laboratory"
   | "billing";
 
+interface NavItem {
+  id: NavTab;
+  label: string;
+  icon: LucideIcon;
+  badge?: string;
+}
+
+const navItems: NavItem[] = [
+  { id: "dashboard", label: "Overview", icon: LayoutDashboard },
+  { id: "patients", label: "Patients", icon: Users },
+  { id: "appointments", label: "Appointments", icon: Calendar },
+  { id: "encounters", label: "Consultation", icon: Stethoscope },
+  { id: "admissions", label: "Inpatient", icon: Bed },
+  { id: "pharmacy", label: "Pharmacy", icon: Pill },
+  { id: "laboratory", label: "Lab", icon: FlaskConical },
+  { id: "billing", label: "Billing", icon: CreditCard },
+];
+
 interface SidebarProps {
   currentTab: NavTab;
   onTabChange: (tab: NavTab) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => {
-  const items: { id: NavTab; label: string; icon: React.ReactNode }[] = [
-    { id: "dashboard", label: "Overview", icon: <LayoutDashboard size={18} /> },
-    { id: "patients", label: "Patients", icon: <Users size={18} /> },
-    { id: "appointments", label: "Appointments", icon: <Calendar size={18} /> },
-    { id: "encounters", label: "Consultation", icon: <Stethoscope size={18} /> },
-    { id: "admissions", label: "Inpatient Beds", icon: <Bed size={18} /> },
-    { id: "pharmacy", label: "Pharmacy & Stock", icon: <Pill size={18} /> },
-    { id: "laboratory", label: "Diagnostic Lab", icon: <FlaskConical size={18} /> },
-    { id: "billing", label: "Billing & Cashier", icon: <CreditCard size={18} /> },
-  ];
-
   return (
-    <aside className="w-56 bg-slate-900 text-slate-300 p-3 hidden md:flex flex-col justify-between shrink-0 h-[calc(100vh-3.5rem)] sticky top-14">
-      <nav className="space-y-1">
-        {items.map((item) => {
+    <aside className="w-56 bg-slate-900 text-slate-300 hidden md:flex flex-col justify-between shrink-0 h-[calc(100vh-3.5rem)] sticky top-14">
+      {/* Nav Items */}
+      <nav className="p-3 space-y-0.5 overflow-y-auto">
+        {navItems.map((item) => {
           const isActive = currentTab === item.id;
+          const Icon = item.icon;
           return (
             <button
               key={item.id}
               onClick={() => onTabChange(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-all ${
+              className={cn(
+                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-all group",
                 isActive
-                  ? "bg-blue-600 text-white shadow-sm font-semibold"
-                  : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-              }`}
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-500/20 font-semibold"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-slate-200",
+              )}
             >
-              {item.icon}
-              {item.label}
+              <Icon
+                size={17}
+                className={cn(
+                  "shrink-0 transition-colors",
+                  isActive ? "text-white" : "text-slate-500 group-hover:text-slate-300",
+                )}
+              />
+              <span className="truncate">{item.label}</span>
+              {item.badge && (
+                <span className="ml-auto text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded-full font-bold leading-none">
+                  {item.badge}
+                </span>
+              )}
             </button>
           );
         })}
       </nav>
 
-      <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/50 text-[11px] text-slate-400">
-        <p className="font-semibold text-slate-200">Tauri 2.0 Desktop</p>
-        <p className="text-[10px] text-slate-400 mt-0.5">Connected to Care API Monolith</p>
+      {/* Bottom Info Card */}
+      <div className="p-3">
+        <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/40 space-y-1">
+          <p className="font-semibold text-[11px] text-slate-200">Tauri 2.0 Platform</p>
+          <p className="text-[10px] text-slate-500 leading-relaxed">
+            Desktop & Mobile — CARE Modular Monolith
+          </p>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+            <span className="text-[10px] text-emerald-400 font-medium">API Connected</span>
+          </div>
+        </div>
       </div>
     </aside>
   );
