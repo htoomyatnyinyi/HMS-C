@@ -19,6 +19,9 @@ export interface AuthResponse {
 
 export const authApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
+    getDoctors: builder.query<{ success: boolean; data: Array<{ id: string; qualification?: string }> }, void>({
+      query: () => "/auth/doctors",
+    }),
     login: builder.mutation<AuthResponse, LoginRequest>({
       query: (credentials) => ({
         url: "/auth/login",
@@ -34,4 +37,4 @@ export const authApi = baseApi.injectEndpoints({
   }),
 });
 
-export const { useLoginMutation, useGetMeQuery } = authApi;
+export const { useLoginMutation, useGetMeQuery, useGetDoctorsQuery } = authApi;

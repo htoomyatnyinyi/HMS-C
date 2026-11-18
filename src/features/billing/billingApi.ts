@@ -21,6 +21,19 @@ export interface Payment {
   paidAt: string;
 }
 
+export interface CreateInvoiceInput {
+  patientId: string;
+  currency?: string;
+  items: Array<{
+    serviceCode?: string;
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    discount?: number;
+    tax?: number;
+  }>;
+}
+
 export const billingApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getInvoices: builder.query<{ success: boolean; data: Invoice[] }, { status?: string }>({
@@ -28,14 +41,14 @@ export const billingApi = baseApi.injectEndpoints({
       providesTags: ["Invoice"],
     }),
 
-    createInvoice: builder.mutation<{ success: boolean; data: Invoice }, Partial<Invoice>>({
+    createInvoice: builder.mutation<{ success: boolean; data: Invoice }, CreateInvoiceInput>({
       query: (body) => ({ url: "/billing/invoices", method: "POST", body }),
       invalidatesTags: ["Invoice"],
     }),
 
     recordPayment: builder.mutation<
       { success: boolean; data: Payment },
-      { invoiceId: string; amount: number; paymentMethod: string }
+      { invoiceId: string; amount: number; method: string }
     >({
       query: ({ invoiceId, ...body }) => ({
         url: `/billing/invoices/${invoiceId}/payments`,

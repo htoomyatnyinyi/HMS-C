@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { FlaskConical, Plus, Clock, FileSpreadsheet } from "lucide-react";
 import {
   useGetLabOrdersQuery,
+  useGetLabTestsQuery,
   useCreateLabOrderMutation,
 } from "../features/laboratory/laboratoryApi";
 import { useGetPatientsQuery } from "../features/patients/patientsApi";
@@ -15,6 +16,7 @@ export const LaboratoryPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { data: ordersData, isLoading } = useGetLabOrdersQuery({});
+  const { data: testsData } = useGetLabTestsQuery({});
   const { data: patientsData } = useGetPatientsQuery({ limit: 100 });
   const [createOrder, { isLoading: isCreating }] = useCreateLabOrderMutation();
 
@@ -25,15 +27,24 @@ export const LaboratoryPage: React.FC = () => {
   });
 
   const orders = ordersData?.data || [];
+  const tests = testsData?.data || [];
   const patients = patientsData?.data?.data || [];
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.patientId) return;
+    const test = tests[0];
+    if (!test) {
+      dispatch(addToast({ type: "error", title: "No laboratory test", message: "Seed or create a laboratory test first" }));
+      return;
+    }
     try {
       await createOrder({
-        ...form,
-        status: "ORDERED",
+        patientId: form.patientId,
+        priority: form.priority,
+        laboratoryId: test.laboratoryId,
+        testIds: [test.id],
+        notes: form.clinicalNotes,
       }).unwrap();
       setIsModalOpen(false);
       setForm({ patientId: "", priority: "ROUTINE", clinicalNotes: "" });

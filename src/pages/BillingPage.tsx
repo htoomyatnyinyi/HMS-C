@@ -39,10 +39,11 @@ export const BillingPage: React.FC = () => {
     try {
       await createInvoice({
         patientId: invoiceForm.patientId,
-        totalAmount: Number(invoiceForm.totalAmount),
-        paidAmount: 0,
-        balanceAmount: Number(invoiceForm.totalAmount),
-        status: "ISSUED",
+        items: [{
+          description: "Clinical services",
+          quantity: 1,
+          unitPrice: Number(invoiceForm.totalAmount),
+        }],
       }).unwrap();
       setIsInvoiceModalOpen(false);
       setInvoiceForm({ patientId: "", totalAmount: 25000 });
@@ -59,7 +60,7 @@ export const BillingPage: React.FC = () => {
       await recordPayment({
         invoiceId: paymentModalInvoice.id,
         amount: Number(paymentAmount),
-        paymentMethod,
+        method: paymentMethod,
       }).unwrap();
       setPaymentModalInvoice(null);
       dispatch(addToast({ type: "success", title: "Payment Recorded", message: "Cashier receipt printed" }));

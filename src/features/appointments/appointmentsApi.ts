@@ -11,6 +11,16 @@ export interface Appointment {
   reason?: string;
 }
 
+export interface CreateAppointmentInput {
+  patientId: string;
+  doctorId?: string;
+  departmentId?: string;
+  startAt: string;
+  endAt: string;
+  reason?: string;
+  notes?: string;
+}
+
 export const appointmentsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getAppointments: builder.query<{ success: boolean; data: Appointment[] }, { date?: string; status?: string }>({
@@ -19,6 +29,13 @@ export const appointmentsApi = baseApi.injectEndpoints({
         params,
       }),
       providesTags: ["Appointment"],
+    }),
+    createAppointment: builder.mutation<
+      { success: boolean; data: Appointment },
+      CreateAppointmentInput
+    >({
+      query: (body) => ({ url: "/appointments", method: "POST", body }),
+      invalidatesTags: ["Appointment"],
     }),
     updateAppointmentStatus: builder.mutation<
       { success: boolean; data: Appointment },
@@ -34,4 +51,8 @@ export const appointmentsApi = baseApi.injectEndpoints({
   }),
 });
 
-export const { useGetAppointmentsQuery, useUpdateAppointmentStatusMutation } = appointmentsApi;
+export const {
+  useGetAppointmentsQuery,
+  useCreateAppointmentMutation,
+  useUpdateAppointmentStatusMutation,
+} = appointmentsApi;

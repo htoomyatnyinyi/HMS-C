@@ -37,8 +37,6 @@ export const PatientsPage: React.FC = () => {
     try {
       await createPatient({
         ...form,
-        tenantId: "00000000-0000-0000-0000-000000000001",
-        hospitalId: "00000000-0000-0000-0000-000000000001",
       }).unwrap();
       setIsModalOpen(false);
       setForm({

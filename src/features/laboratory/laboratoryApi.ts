@@ -2,6 +2,7 @@ import { baseApi } from "../api/baseApi";
 
 export interface LabTest {
   id: string;
+  laboratoryId: string;
   code: string;
   name: string;
   category: string;
@@ -20,6 +21,15 @@ export interface LabOrder {
   createdAt: string;
 }
 
+export interface CreateLabOrderInput {
+  laboratoryId: string;
+  patientId: string;
+  encounterId?: string;
+  testIds: string[];
+  priority?: string;
+  notes?: string;
+}
+
 export const laboratoryApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getLabTests: builder.query<{ success: boolean; data: LabTest[] }, { category?: string }>({
@@ -32,7 +42,7 @@ export const laboratoryApi = baseApi.injectEndpoints({
       providesTags: ["Encounter"],
     }),
 
-    createLabOrder: builder.mutation<{ success: boolean; data: LabOrder }, Partial<LabOrder>>({
+    createLabOrder: builder.mutation<{ success: boolean; data: LabOrder }, CreateLabOrderInput>({
       query: (body) => ({ url: "/laboratory/orders", method: "POST", body }),
       invalidatesTags: ["Encounter"],
     }),

@@ -20,6 +20,9 @@ import {
   type Encounter,
 } from "../features/encounters/encountersApi";
 import { useGetPatientsQuery } from "../features/patients/patientsApi";
+import { useGetDoctorsQuery } from "../features/auth/authApi";
+import { useGetMedicinesQuery } from "../features/pharmacy/pharmacyApi";
+import { useCreatePrescriptionMutation, useGetPrescriptionsQuery } from "../features/prescriptions/prescriptionsApi";
 import { useAppDispatch } from "../app/hooks";
 import { addToast } from "../features/toast/toastSlice";
 import { PageHeader, LoadingBlock, EmptyState, Badge } from "../components/ui/shared";
@@ -40,6 +43,8 @@ export const EncountersPage: React.FC = () => {
   // API Queries & Mutations
   const { data: encountersData, isLoading } = useGetEncountersQuery({});
   const { data: patientsData } = useGetPatientsQuery({ limit: 100 });
+  const { data: doctorsData } = useGetDoctorsQuery();
+  const { data: medicinesData } = useGetMedicinesQuery({});
   const [createEncounter, { isLoading: isCreating }] = useCreateEncounterMutation();
   const [updateStatus] = useUpdateEncounterStatusMutation();
 
@@ -52,19 +57,28 @@ export const EncountersPage: React.FC = () => {
   });
   const [addClinicalNote, { isLoading: isAddingNote }] = useAddClinicalNoteMutation();
   const [addDiagnosis, { isLoading: isAddingDiag }] = useAddDiagnosisMutation();
+  const { data: prescriptionsData } = useGetPrescriptionsQuery(
+    { encounterId: selectedEncounter?.id },
+    { skip: !selectedEncounter },
+  );
+  const [createPrescription, { isLoading: isPrescribing }] = useCreatePrescriptionMutation();
 
   // Local Form States
   const [newNote, setNewNote] = useState("");
   const [newDiagDesc, setNewDiagDesc] = useState("");
   const [newDiagIcd, setNewDiagIcd] = useState("");
+  const [prescriptionForm, setPrescriptionForm] = useState({ medicineId: "", dose: "", frequency: "", durationDays: 5, quantity: 1, instructions: "" });
   const [createForm, setCreateForm] = useState({
     patientId: "",
-    type: "OUTPATIENT",
+    doctorId: "",
+    type: "OPD",
     chiefComplaint: "",
   });
 
   const encounters = encountersData?.data || [];
   const patients = patientsData?.data?.data || [];
+  const doctors = doctorsData?.data || [];
+  const medicines = medicinesData?.data || [];
 
   const handleCreateEncounter = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,7 +93,7 @@ export const EncountersPage: React.FC = () => {
         startAt: new Date().toISOString(),
       }).unwrap();
       setIsNewModalOpen(false);
-      setCreateForm({ patientId: "", type: "OUTPATIENT", chiefComplaint: "" });
+      setCreateForm({ patientId: "", doctorId: "", type: "OPD", chiefComplaint: "" });
       dispatch(addToast({ type: "success", title: "Encounter Started", message: `Visit #${res.data?.encounterNo || "new"} created` }));
       if (res.data) setSelectedEncounter(res.data);
     } catch (err: any) {
@@ -130,6 +144,22 @@ export const EncountersPage: React.FC = () => {
       dispatch(addToast({ type: "success", title: "Diagnosis Logged", message: "Primary diagnosis attached to visit" }));
     } catch (err: any) {
       dispatch(addToast({ type: "error", title: "Diagnosis Failed", message: err?.data?.error || "Failed to save" }));
+    }
+  };
+
+  const handleCreatePrescription = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEncounter || !prescriptionForm.medicineId) return;
+    try {
+      await createPrescription({
+        patientId: selectedEncounter.patientId,
+        encounterId: selectedEncounter.id,
+        items: [{ ...prescriptionForm, durationDays: Number(prescriptionForm.durationDays), quantity: Number(prescriptionForm.quantity) }],
+      }).unwrap();
+      setPrescriptionForm({ medicineId: "", dose: "", frequency: "", durationDays: 5, quantity: 1, instructions: "" });
+      dispatch(addToast({ type: "success", title: "Prescription Created", message: "Medicine prescription saved" }));
+    } catch (err: any) {
+      dispatch(addToast({ type: "error", title: "Prescription Failed", message: err?.data?.error || "Failed to save prescription" }));
     }
   };
 
@@ -292,6 +322,28 @@ export const EncountersPage: React.FC = () => {
                     </form>
                   </div>
 
+                  <div className="space-y-3 border-t border-slate-100 pt-5">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600">Prescription</h4>
+                    {prescriptionsData?.data?.map((prescription) => (
+                      <div key={prescription.id} className="rounded-lg border border-purple-100 bg-purple-50/40 p-3 text-xs">
+                        <span className="font-mono font-semibold text-purple-700">{prescription.prescriptionNo}</span>
+                        <span className="ml-2 text-slate-500">{prescription.status}</span>
+                      </div>
+                    ))}
+                    <form onSubmit={handleCreatePrescription} className="grid grid-cols-2 gap-2">
+                      <select required value={prescriptionForm.medicineId} onChange={(e) => setPrescriptionForm({ ...prescriptionForm, medicineId: e.target.value })} className="col-span-2 rounded-lg border border-slate-200 px-2.5 py-2 text-xs">
+                        <option value="">Select medicine</option>
+                        {medicines.map((medicine) => <option key={medicine.id} value={medicine.id}>{medicine.name} {medicine.strength || ""}</option>)}
+                      </select>
+                      <input placeholder="Dose (e.g. 500mg)" value={prescriptionForm.dose} onChange={(e) => setPrescriptionForm({ ...prescriptionForm, dose: e.target.value })} className="rounded-lg border border-slate-200 px-2.5 py-2 text-xs" />
+                      <input placeholder="Frequency (e.g. BID)" value={prescriptionForm.frequency} onChange={(e) => setPrescriptionForm({ ...prescriptionForm, frequency: e.target.value })} className="rounded-lg border border-slate-200 px-2.5 py-2 text-xs" />
+                      <input type="number" min="1" value={prescriptionForm.quantity} onChange={(e) => setPrescriptionForm({ ...prescriptionForm, quantity: Number(e.target.value) })} className="rounded-lg border border-slate-200 px-2.5 py-2 text-xs" />
+                      <input type="number" min="1" value={prescriptionForm.durationDays} onChange={(e) => setPrescriptionForm({ ...prescriptionForm, durationDays: Number(e.target.value) })} className="rounded-lg border border-slate-200 px-2.5 py-2 text-xs" />
+                      <input placeholder="Instructions" value={prescriptionForm.instructions} onChange={(e) => setPrescriptionForm({ ...prescriptionForm, instructions: e.target.value })} className="col-span-2 rounded-lg border border-slate-200 px-2.5 py-2 text-xs" />
+                      <button disabled={isPrescribing} className="col-span-2 rounded-lg bg-purple-600 py-2 text-xs font-semibold text-white disabled:opacity-50">{isPrescribing ? "Saving…" : "Add Prescription"}</button>
+                    </form>
+                  </div>
+
                   {/* Doctor's SOAP Clinical Notes */}
                   <div className="space-y-3 border-t border-slate-100 pt-5">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
@@ -404,10 +456,18 @@ export const EncountersPage: React.FC = () => {
                   onChange={(e) => setCreateForm({ ...createForm, type: e.target.value })}
                   className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:bg-white"
                 >
-                  <option value="OUTPATIENT">Outpatient (OPD)</option>
+                  <option value="OPD">Outpatient (OPD)</option>
                   <option value="EMERGENCY">Emergency (ER)</option>
-                  <option value="INPATIENT">Inpatient (Ward Round)</option>
+                  <option value="IPD">Inpatient (Ward Round)</option>
                   <option value="TELEMEDICINE">Telemedicine Consult</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Doctor</label>
+                <select value={createForm.doctorId} onChange={(e) => setCreateForm({ ...createForm, doctorId: e.target.value })} className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg">
+                  <option value="">Unassigned</option>
+                  {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctor.qualification || "Doctor"} — {doctor.id.slice(0, 8)}</option>)}
                 </select>
               </div>
 
