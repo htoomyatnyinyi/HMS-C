@@ -5,8 +5,12 @@ import {
   PackageCheck,
   AlertTriangle,
   Package,
+  Plus,
+  X,
 } from "lucide-react";
-import { useGetMedicinesQuery } from "../features/pharmacy/pharmacyApi";
+import { useGetMedicinesQuery, useCreateMedicineMutation } from "../features/pharmacy/pharmacyApi";
+import { useCreateDispensationMutation } from "../features/pharmacy/pharmacyApi";
+import { useGetPrescriptionsQuery } from "../features/prescriptions/prescriptionsApi";
 import {
   LoadingBlock,
   EmptyState,
@@ -17,14 +21,51 @@ import {
 export const PharmacyPage: React.FC = () => {
   const [search, setSearch] = useState("");
   const { data, isLoading } = useGetMedicinesQuery({ search });
+  const [createMedicine, { isLoading: isCreating }] = useCreateMedicineMutation();
+  const [createDispensation, { isLoading: isDispensing }] = useCreateDispensationMutation();
+  const { data: prescriptionsData } = useGetPrescriptionsQuery({});
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [form, setForm] = useState({ code: "", name: "", genericName: "", strength: "", dosageForm: "Tablet", unit: "tablet" });
+  const [prescriptionId, setPrescriptionId] = useState("");
 
   const medicines = data?.data || [];
+  const prescriptions = (prescriptionsData?.data || []).filter((prescription) => prescription.status === "ACTIVE" && prescription.items?.length);
+
+  const handleCreate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    try {
+      await createMedicine(form).unwrap();
+      setIsModalOpen(false);
+      setForm({ code: "", name: "", genericName: "", strength: "", dosageForm: "Tablet", unit: "tablet" });
+    } catch (error) {
+      console.error("Failed to create medicine:", error);
+    }
+  };
+
+  const handleDispense = async () => {
+    const prescription = prescriptions.find((item) => item.id === prescriptionId);
+    const items = prescription?.items || [];
+    if (!prescription || items.length === 0) return;
+    try {
+      await createDispensation({
+        prescriptionId: prescription.id,
+        items: items.map((item) => ({
+          prescriptionItemId: item.id,
+          quantity: item.quantity,
+        })),
+      }).unwrap();
+      setPrescriptionId("");
+    } catch (error) {
+      console.error("Failed to dispense prescription:", error);
+    }
+  };
 
   return (
     <div className="space-y-5">
       <PageHeader
         title="Pharmacy & Formulary"
         description="Medicines catalog, dosage forms, and dispensing"
+        actions={<button onClick={() => setIsModalOpen(true)} className="rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white"><Plus size={15} className="mr-1 inline" />Add Medicine</button>}
       />
 
       {/* Search Bar */}
@@ -40,6 +81,15 @@ export const PharmacyPage: React.FC = () => {
           placeholder="Search medicine by brand or generic…"
           className="w-full pl-9 pr-3.5 py-2 text-sm bg-white border border-slate-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 transition-shadow"
         />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-purple-100 bg-purple-50/50 p-4">
+        <div className="mr-2"><p className="text-xs font-bold text-purple-900">Dispense prescription</p><p className="text-[11px] text-purple-700">Select an active prescription for the pharmacy queue.</p></div>
+        <select value={prescriptionId} onChange={(e) => setPrescriptionId(e.target.value)} className="min-w-64 rounded-lg border border-purple-200 bg-white px-3 py-2 text-xs">
+          <option value="">Select prescription</option>
+          {prescriptions.map((prescription) => <option key={prescription.id} value={prescription.id}>{prescription.prescriptionNo} — {prescription.items?.length} item(s)</option>)}
+        </select>
+        <button onClick={handleDispense} disabled={!prescriptionId || isDispensing} className="rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">{isDispensing ? "Dispensing…" : "Dispense"}</button>
       </div>
 
       {isLoading ? (
@@ -79,7 +129,7 @@ export const PharmacyPage: React.FC = () => {
                 </Badge>
                 <Badge variant="success">
                   <PackageCheck size={11} />
-                  In Stock
+                  {Number(m.stockQuantity || 0) > 0 ? `${m.stockQuantity} in stock` : "Out of stock"}
                 </Badge>
               </div>
             </div>
@@ -95,6 +145,21 @@ export const PharmacyPage: React.FC = () => {
               : "Pharmacy catalog is empty. Run the seed script to populate."
           }
         />
+      )}
+
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <form onSubmit={handleCreate} className="w-full max-w-md space-y-3 rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between"><h3 className="font-bold text-slate-900">Add Medicine</h3><button type="button" onClick={() => setIsModalOpen(false)}><X size={18} /></button></div>
+            <div className="grid grid-cols-2 gap-3">
+              <input required placeholder="Code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+              <input required placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            </div>
+            <input placeholder="Generic name" value={form.genericName} onChange={(e) => setForm({ ...form, genericName: e.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            <div className="grid grid-cols-2 gap-3"><input placeholder="Strength" value={form.strength} onChange={(e) => setForm({ ...form, strength: e.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" /><input placeholder="Dosage form" value={form.dosageForm} onChange={(e) => setForm({ ...form, dosageForm: e.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" /></div>
+            <button disabled={isCreating} className="w-full rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{isCreating ? "Saving…" : "Save Medicine"}</button>
+          </form>
+        </div>
       )}
     </div>
   );

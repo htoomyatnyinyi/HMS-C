@@ -27,14 +27,24 @@ export interface PatientsResponse {
 
 export const patientsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getPatients: builder.query<PatientsResponse, { search?: string; page?: number; limit?: number }>({
+    getPatients: builder.query<
+      PatientsResponse,
+      { search?: string; page?: number; limit?: number }
+    >({
       query: (params) => ({
         url: "/patients",
         params,
       }),
+      // transformResponse: (response: PatientsResponse) => {
+      //   console.log("patients", response);
+      //   return response;
+      // },
       providesTags: ["Patient"],
     }),
-    createPatient: builder.mutation<{ success: boolean; data: Patient }, Partial<Patient>>({
+    createPatient: builder.mutation<
+      { success: boolean; data: Patient },
+      Partial<Patient>
+    >({
       query: (body) => ({
         url: "/patients",
         method: "POST",

@@ -7,7 +7,13 @@ import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { PatientsPage } from "./pages/PatientsPage";
 import { AppointmentsPage } from "./pages/AppointmentsPage";
+import { EncountersPage } from "./pages/EncountersPage";
+import { AdmissionsPage } from "./pages/AdmissionsPage";
 import { PharmacyPage } from "./pages/PharmacyPage";
+import { LaboratoryPage } from "./pages/LaboratoryPage";
+import { BillingPage } from "./pages/BillingPage";
+import { AdminPage } from "./pages/AdminPage";
+import { ToastContainer } from "./components/ui/ToastContainer";
 
 export default function App() {
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
@@ -15,37 +21,43 @@ export default function App() {
 
   /* ─── Auth Gate ─── */
   if (!isAuthenticated) {
-    return <LoginPage />;
+    return (
+      <>
+        <ToastContainer />
+        <LoginPage />
+      </>
+    );
   }
 
   const renderContent = () => {
     switch (currentTab) {
       case "dashboard":
-        return <DashboardPage />;
+        return <DashboardPage onNavigate={setCurrentTab} />;
       case "patients":
         return <PatientsPage />;
       case "appointments":
         return <AppointmentsPage />;
+      case "encounters":
+        return <EncountersPage />;
+      case "admissions":
+        return <AdmissionsPage />;
       case "pharmacy":
         return <PharmacyPage />;
+      case "laboratory":
+        return <LaboratoryPage />;
+      case "billing":
+        return <BillingPage />;
+      case "admin":
+        return <AdminPage />;
       default:
-        return (
-          <div className="flex flex-col items-center justify-center gap-2 p-16 bg-white rounded-xl border border-slate-200 border-dashed">
-            <span className="text-2xl">🚧</span>
-            <h3 className="text-sm font-bold text-slate-700">
-              {currentTab.charAt(0).toUpperCase() + currentTab.slice(1)} Module
-            </h3>
-            <p className="text-xs text-slate-400">
-              Connected to Backend Monolith — Module page coming soon
-            </p>
-          </div>
-        );
+        return <DashboardPage />;
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col w-full text-slate-900">
       <Header />
+      <ToastContainer />
 
       <div className="flex flex-1 w-full">
         <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} />

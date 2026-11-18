@@ -1,9 +1,12 @@
-import React from "react";
-import { Clock, CalendarCheck, Plus } from "lucide-react";
+import React, { useState } from "react";
+import { Clock, CalendarCheck, Plus, X } from "lucide-react";
 import {
   useGetAppointmentsQuery,
   useUpdateAppointmentStatusMutation,
+  useCreateAppointmentMutation,
 } from "../features/appointments/appointmentsApi";
+import { useGetPatientsQuery } from "../features/patients/patientsApi";
+import { useGetDoctorsQuery } from "../features/auth/authApi";
 import {
   LoadingBlock,
   EmptyState,
@@ -25,10 +28,44 @@ const statusConfig: Record<
 };
 
 export const AppointmentsPage: React.FC = () => {
-  const { data, isLoading } = useGetAppointmentsQuery({});
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
+  const { data, isLoading } = useGetAppointmentsQuery({ date: selectedDate });
   const [updateStatus] = useUpdateAppointmentStatusMutation();
+  const [createAppointment, { isLoading: isCreating }] = useCreateAppointmentMutation();
+  const { data: patientsData } = useGetPatientsQuery({ limit: 100 });
+  const { data: doctorsData } = useGetDoctorsQuery();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [form, setForm] = useState({
+    patientId: "",
+    doctorId: "",
+    date: new Date().toISOString().slice(0, 10),
+    startTime: "09:00",
+    reason: "General consultation",
+  });
 
   const appointments = data?.data || [];
+  const patients = patientsData?.data?.data || [];
+  const doctors = doctorsData?.data || [];
+
+  const handleCreate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!form.patientId) return;
+    const start = new Date(`${form.date}T${form.startTime}`);
+    const end = new Date(start.getTime() + 30 * 60 * 1000);
+    try {
+      await createAppointment({
+        patientId: form.patientId,
+        doctorId: form.doctorId || undefined,
+        startAt: start.toISOString(),
+        endAt: end.toISOString(),
+        reason: form.reason,
+      }).unwrap();
+      setIsModalOpen(false);
+      setForm({ patientId: "", doctorId: "", date: form.date, startTime: "09:00", reason: "General consultation" });
+    } catch (error) {
+      console.error("Failed to book appointment:", error);
+    }
+  };
 
   const handleStatusChange = async (id: string, status: string) => {
     try {
@@ -44,10 +81,7 @@ export const AppointmentsPage: React.FC = () => {
         title="Appointments Schedule"
         description="Doctor consultations and patient check-in queue"
         actions={
-          <button className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm shadow-blue-500/20">
-            <Plus size={15} />
-            Book Appointment
-          </button>
+          <div className="flex items-center gap-2"><input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs" /><button onClick={() => setIsModalOpen(true)} className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm shadow-blue-500/20"><Plus size={15} />Book Appointment</button></div>
         }
       />
 
@@ -83,6 +117,8 @@ export const AppointmentsPage: React.FC = () => {
                   <p className="text-sm font-semibold text-slate-800">
                     {a.reason || "General Consultation"}
                   </p>
+                  <p className="text-xs text-slate-500">Patient: {a.patientName || a.patientId.slice(0, 8)}</p>
+                  {a.doctorName && <p className="text-xs text-slate-500">Doctor: {a.doctorName}</p>}
                 </div>
 
                 {/* Actions */}
@@ -121,6 +157,31 @@ export const AppointmentsPage: React.FC = () => {
           title="No appointments today"
           description="All appointment slots are clear. Book a new one to get started."
         />
+      )}
+
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <form onSubmit={handleCreate} className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-slate-900">Book Appointment</h3>
+              <button type="button" onClick={() => setIsModalOpen(false)}><X size={18} /></button>
+            </div>
+            <select required value={form.patientId} onChange={(e) => setForm({ ...form, patientId: e.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <option value="">Select patient</option>
+              {patients.map((p) => <option key={p.id} value={p.id}>{p.firstName} {p.lastName} — {p.mrn}</option>)}
+            </select>
+            <select value={form.doctorId} onChange={(e) => setForm({ ...form, doctorId: e.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <option value="">Any doctor</option>
+              {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctor.qualification || "Doctor"} — {doctor.id.slice(0, 8)}</option>)}
+            </select>
+            <div className="grid grid-cols-2 gap-3">
+              <input required type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+              <input required type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            </div>
+            <input required value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Reason" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            <button disabled={isCreating} className="w-full rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{isCreating ? "Booking…" : "Book Appointment"}</button>
+          </form>
+        </div>
       )}
     </div>
   );
