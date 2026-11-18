@@ -44,12 +44,15 @@ export const PharmacyPage: React.FC = () => {
 
   const handleDispense = async () => {
     const prescription = prescriptions.find((item) => item.id === prescriptionId);
-    const item = prescription?.items?.[0];
-    if (!prescription || !item) return;
+    const items = prescription?.items || [];
+    if (!prescription || items.length === 0) return;
     try {
       await createDispensation({
         prescriptionId: prescription.id,
-        items: [{ prescriptionItemId: item.id, quantity: item.quantity }],
+        items: items.map((item) => ({
+          prescriptionItemId: item.id,
+          quantity: item.quantity,
+        })),
       }).unwrap();
       setPrescriptionId("");
     } catch (error) {
@@ -126,7 +129,7 @@ export const PharmacyPage: React.FC = () => {
                 </Badge>
                 <Badge variant="success">
                   <PackageCheck size={11} />
-                  In Stock
+                  {Number(m.stockQuantity || 0) > 0 ? `${m.stockQuantity} in stock` : "Out of stock"}
                 </Badge>
               </div>
             </div>

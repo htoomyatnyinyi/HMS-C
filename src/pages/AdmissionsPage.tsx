@@ -6,6 +6,7 @@ import {
   useGetBedsQuery,
   useCreateAdmissionMutation,
   useDischargePatientMutation,
+  useTransferBedMutation,
 } from "../features/admissions/admissionsApi";
 import { useGetPatientsQuery } from "../features/patients/patientsApi";
 import { useAppDispatch } from "../app/hooks";
@@ -24,10 +25,14 @@ export const AdmissionsPage: React.FC = () => {
 
   const [createAdmission, { isLoading: isCreating }] = useCreateAdmissionMutation();
   const [dischargePatient] = useDischargePatientMutation();
+  const [transferBed, { isLoading: isTransferring }] = useTransferBedMutation();
+  const [transferAdmissionId, setTransferAdmissionId] = useState<string | null>(null);
+  const [transferToBedId, setTransferToBedId] = useState("");
 
   const [form, setForm] = useState({
     patientId: "",
     wardId: "",
+    bedId: "",
     admissionReason: "",
   });
 
@@ -35,18 +40,21 @@ export const AdmissionsPage: React.FC = () => {
   const wards = wardsData?.data || [];
   const beds = bedsData?.data || [];
   const patients = patientsData?.data?.data || [];
+  const availableBeds = beds.filter((bed) =>
+    (!form.wardId || bed.wardId === form.wardId) && bed.status === "AVAILABLE",
+  );
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.patientId) return;
+    if (!form.patientId || !form.bedId) return;
     try {
       await createAdmission({
-        ...form,
-        status: "ADMITTED",
-        admittedAt: new Date().toISOString(),
+        patientId: form.patientId,
+        bedId: form.bedId,
+        admissionReason: form.admissionReason,
       }).unwrap();
       setIsModalOpen(false);
-      setForm({ patientId: "", wardId: "", admissionReason: "" });
+      setForm({ patientId: "", wardId: "", bedId: "", admissionReason: "" });
       dispatch(addToast({ type: "success", title: "Patient Admitted", message: "Bed allocation and admission created" }));
     } catch (err: any) {
       dispatch(addToast({ type: "error", title: "Admission Failed", message: err?.data?.error || "Error occurred" }));
@@ -59,6 +67,18 @@ export const AdmissionsPage: React.FC = () => {
       dispatch(addToast({ type: "success", title: "Patient Discharged", message: "Bed marked ready for sanitation" }));
     } catch (err: any) {
       dispatch(addToast({ type: "error", title: "Discharge Failed", message: err?.data?.error || "Error occurred" }));
+    }
+  };
+
+  const handleTransfer = async () => {
+    const admission = admissions.find((item) => item.id === transferAdmissionId);
+    if (!admission || !transferToBedId) return;
+    try {
+      await transferBed({ id: admission.id, fromBedId: admission.bedId, toBedId: transferToBedId }).unwrap();
+      setTransferAdmissionId(null);
+      setTransferToBedId("");
+    } catch (err: any) {
+      dispatch(addToast({ type: "error", title: "Transfer Failed", message: err?.data?.error || "Unable to transfer bed" }));
     }
   };
 
@@ -123,6 +143,8 @@ export const AdmissionsPage: React.FC = () => {
                 </Badge>
               </div>
 
+              <p className="text-sm font-semibold text-slate-800">Patient: {adm.patientName || adm.patientId.slice(0, 8)}</p>
+
               <div>
                 <span className="text-[11px] text-slate-400 font-medium">Reason for Admission</span>
                 <p className="text-sm font-semibold text-slate-800">{adm.admissionReason || "Observation & Post-op Recovery"}</p>
@@ -131,16 +153,15 @@ export const AdmissionsPage: React.FC = () => {
               <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
                 <span className="text-xs text-slate-500 flex items-center gap-1">
                   <DoorOpen size={14} className="text-slate-400" />
-                  Ward: <strong className="text-slate-700">General Medical</strong>
+                  Ward: <strong className="text-slate-700">{adm.wardName || "—"}</strong>
+                  {adm.bedNo && <span className="ml-2">Bed: <strong className="text-slate-700">{adm.bedNo}</strong></span>}
                 </span>
 
                 {adm.status === "ADMITTED" && (
-                  <button
-                    onClick={() => handleDischarge(adm.id)}
-                    className="px-2.5 py-1 bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
-                  >
-                    <LogOut size={12} /> Discharge
-                  </button>
+                  <div className="flex gap-2">
+                    <button onClick={() => { setTransferAdmissionId(adm.id); setTransferToBedId(""); }} className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold">Transfer</button>
+                    <button onClick={() => handleDischarge(adm.id)} className="px-2.5 py-1 bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"><LogOut size={12} /> Discharge</button>
+                  </div>
                 )}
               </div>
             </div>
@@ -186,6 +207,22 @@ export const AdmissionsPage: React.FC = () => {
               </div>
 
               <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Ward</label>
+                <select required value={form.wardId} onChange={(e) => setForm({ ...form, wardId: e.target.value, bedId: "" })} className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg">
+                  <option value="">-- Choose ward --</option>
+                  {wards.map((ward) => <option key={ward.id} value={ward.id}>{ward.name} ({ward.code})</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Available Bed</label>
+                <select required value={form.bedId} onChange={(e) => setForm({ ...form, bedId: e.target.value })} className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg">
+                  <option value="">-- Choose bed --</option>
+                  {availableBeds.map((bed: any) => <option key={bed.id} value={bed.id}>{bed.bedNo || bed.bedNumber || bed.id.slice(0, 8)}</option>)}
+                </select>
+              </div>
+
+              <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1">Reason for Admission</label>
                 <input
                   type="text"
@@ -214,6 +251,19 @@ export const AdmissionsPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {transferAdmissionId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="font-bold text-slate-900">Transfer Patient Bed</h3>
+            <select required value={transferToBedId} onChange={(e) => setTransferToBedId(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <option value="">Select available bed</option>
+              {beds.filter((bed: any) => bed.status === "AVAILABLE").map((bed: any) => <option key={bed.id} value={bed.id}>{bed.bedNo || bed.bedNumber || bed.id.slice(0, 8)}</option>)}
+            </select>
+            <div className="flex gap-2"><button onClick={() => setTransferAdmissionId(null)} className="flex-1 rounded-lg border border-slate-200 py-2 text-sm">Cancel</button><button onClick={handleTransfer} disabled={!transferToBedId || isTransferring} className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white disabled:opacity-50">{isTransferring ? "Transferring…" : "Confirm Transfer"}</button></div>
           </div>
         </div>
       )}

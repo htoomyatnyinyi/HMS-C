@@ -9,6 +9,7 @@ export interface Medicine {
   strength?: string;
   dosageForm?: string;
   unit: string;
+  stockQuantity?: number;
 }
 
 export interface CreateMedicineInput {
@@ -42,7 +43,7 @@ export const pharmacyApi = baseApi.injectEndpoints({
     }),
     createDispensation: builder.mutation<{ success: boolean; data: unknown }, CreateDispensationInput>({
       query: (body) => ({ url: "/pharmacy/dispensations", method: "POST", body }),
-      invalidatesTags: ["Medicine"],
+      invalidatesTags: ["Medicine", "Encounter"],
     }),
   }),
 });

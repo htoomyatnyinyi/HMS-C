@@ -9,6 +9,8 @@ export interface Appointment {
   endAt: string;
   status: string;
   reason?: string;
+  patientName?: string;
+  doctorName?: string;
 }
 
 export interface CreateAppointmentInput {

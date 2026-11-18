@@ -90,19 +90,19 @@ export const BillingPage: React.FC = () => {
         <div className="p-3.5 bg-white border border-slate-200 rounded-xl">
           <span className="text-[11px] font-semibold text-slate-400">Total Billed</span>
           <p className="text-xl font-bold text-slate-800 mt-0.5">
-            {invoices.reduce((acc, i) => acc + (Number(i.totalAmount) || 0), 0).toLocaleString()} MMK
+            {invoices.reduce((acc, i) => acc + (Number(i.total) || 0), 0).toLocaleString()} MMK
           </p>
         </div>
         <div className="p-3.5 bg-white border border-slate-200 rounded-xl">
           <span className="text-[11px] font-semibold text-slate-400">Paid In-Cash/Card</span>
           <p className="text-xl font-bold text-emerald-600 mt-0.5">
-            {invoices.reduce((acc, i) => acc + (Number(i.paidAmount) || 0), 0).toLocaleString()} MMK
+            {invoices.reduce((acc, i) => acc + Math.max(0, Number(i.total) - Number(i.balanceDue)), 0).toLocaleString()} MMK
           </p>
         </div>
         <div className="p-3.5 bg-white border border-slate-200 rounded-xl">
           <span className="text-[11px] font-semibold text-slate-400">Receivables (Outstanding)</span>
           <p className="text-xl font-bold text-amber-600 mt-0.5">
-            {invoices.reduce((acc, i) => acc + (Number(i.balanceAmount) || 0), 0).toLocaleString()} MMK
+            {invoices.reduce((acc, i) => acc + (Number(i.balanceDue) || 0), 0).toLocaleString()} MMK
           </p>
         </div>
       </div>
@@ -126,10 +126,10 @@ export const BillingPage: React.FC = () => {
               </div>
 
               <div>
-                <p className="text-xl font-bold text-slate-900">{Number(inv.totalAmount).toLocaleString()} MMK</p>
+                <p className="text-xl font-bold text-slate-900">{Number(inv.total).toLocaleString()} MMK</p>
                 <div className="flex justify-between text-xs text-slate-500 mt-1">
-                  <span>Paid: {Number(inv.paidAmount).toLocaleString()} MMK</span>
-                  <span className="text-amber-600 font-semibold">Balance: {Number(inv.balanceAmount).toLocaleString()} MMK</span>
+                  <span>Paid: {Math.max(0, Number(inv.total) - Number(inv.balanceDue)).toLocaleString()} MMK</span>
+                  <span className="text-amber-600 font-semibold">Balance: {Number(inv.balanceDue).toLocaleString()} MMK</span>
                 </div>
               </div>
 
@@ -142,7 +142,7 @@ export const BillingPage: React.FC = () => {
                   <button
                     onClick={() => {
                       setPaymentModalInvoice(inv);
-                      setPaymentAmount(Number(inv.balanceAmount));
+                      setPaymentAmount(Number(inv.balanceDue));
                     }}
                     className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
                   >
@@ -255,7 +255,7 @@ export const BillingPage: React.FC = () => {
                   type="number"
                   required
                   min="500"
-                  max={paymentModalInvoice.balanceAmount}
+                  max={paymentModalInvoice.balanceDue}
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(Number(e.target.value))}
                   className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:bg-white font-mono"

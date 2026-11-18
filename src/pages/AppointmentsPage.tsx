@@ -28,7 +28,8 @@ const statusConfig: Record<
 };
 
 export const AppointmentsPage: React.FC = () => {
-  const { data, isLoading } = useGetAppointmentsQuery({});
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
+  const { data, isLoading } = useGetAppointmentsQuery({ date: selectedDate });
   const [updateStatus] = useUpdateAppointmentStatusMutation();
   const [createAppointment, { isLoading: isCreating }] = useCreateAppointmentMutation();
   const { data: patientsData } = useGetPatientsQuery({ limit: 100 });
@@ -80,10 +81,7 @@ export const AppointmentsPage: React.FC = () => {
         title="Appointments Schedule"
         description="Doctor consultations and patient check-in queue"
         actions={
-          <button onClick={() => setIsModalOpen(true)} className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm shadow-blue-500/20">
-            <Plus size={15} />
-            Book Appointment
-          </button>
+          <div className="flex items-center gap-2"><input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs" /><button onClick={() => setIsModalOpen(true)} className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm shadow-blue-500/20"><Plus size={15} />Book Appointment</button></div>
         }
       />
 
@@ -119,6 +117,8 @@ export const AppointmentsPage: React.FC = () => {
                   <p className="text-sm font-semibold text-slate-800">
                     {a.reason || "General Consultation"}
                   </p>
+                  <p className="text-xs text-slate-500">Patient: {a.patientName || a.patientId.slice(0, 8)}</p>
+                  {a.doctorName && <p className="text-xs text-slate-500">Doctor: {a.doctorName}</p>}
                 </div>
 
                 {/* Actions */}

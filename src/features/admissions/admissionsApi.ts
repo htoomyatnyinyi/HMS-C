@@ -29,6 +29,9 @@ export interface Admission {
   status: string;
   admissionReason?: string;
   dischargeDisposition?: string;
+  patientName?: string;
+  wardName?: string;
+  bedNo?: string;
 }
 
 export const admissionsApi = baseApi.injectEndpoints({
@@ -50,8 +53,15 @@ export const admissionsApi = baseApi.injectEndpoints({
       query: ({ id, ...body }) => ({
         url: `/admissions/${id}/discharge`,
         method: "POST",
-        body,
+        body: {
+          dischargeDiagnosis: body.dischargeDisposition,
+          dischargeSummary: body.dischargeNotes,
+        },
       }),
+      invalidatesTags: ["Admission"],
+    }),
+    transferBed: builder.mutation<{ success: boolean; data: unknown }, { id: string; fromBedId?: string; toBedId: string; reason?: string }>({
+      query: ({ id, ...body }) => ({ url: `/admissions/${id}/transfer`, method: "POST", body }),
       invalidatesTags: ["Admission"],
     }),
 
@@ -76,6 +86,7 @@ export const {
   useGetAdmissionsQuery,
   useCreateAdmissionMutation,
   useDischargePatientMutation,
+  useTransferBedMutation,
   useGetWardsQuery,
   useGetBedsQuery,
   useCreateWardMutation,

@@ -7,6 +7,7 @@ import {
   Pill,
   FlaskConical,
   CreditCard,
+  ShieldCheck,
   LayoutDashboard,
   type LucideIcon,
 } from "lucide-react";
@@ -20,7 +21,8 @@ export type NavTab =
   | "admissions"
   | "pharmacy"
   | "laboratory"
-  | "billing";
+  | "billing"
+  | "admin";
 
 interface NavItem {
   id: NavTab;
@@ -38,6 +40,7 @@ const navItems: NavItem[] = [
   { id: "pharmacy", label: "Pharmacy", icon: Pill },
   { id: "laboratory", label: "Lab", icon: FlaskConical },
   { id: "billing", label: "Billing", icon: CreditCard },
+  { id: "admin", label: "Administration", icon: ShieldCheck },
 ];
 
 interface SidebarProps {
@@ -45,9 +48,12 @@ interface SidebarProps {
   onTabChange: (tab: NavTab) => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  currentTab,
+  onTabChange,
+}) => {
   return (
-    <aside className="w-56 bg-slate-900 text-slate-300 hidden md:flex flex-col justify-between shrink-0 h-[calc(100vh-3.5rem)] sticky top-14">
+    <aside className="w-56  hidden md:flex flex-col justify-between shrink-0 h-[calc(100vh-3.5rem)] sticky top-14">
       {/* Nav Items */}
       <nav className="p-3 space-y-0.5 overflow-y-auto">
         {navItems.map((item) => {
@@ -68,7 +74,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => 
                 size={17}
                 className={cn(
                   "shrink-0 transition-colors",
-                  isActive ? "text-white" : "text-slate-500 group-hover:text-slate-300",
+                  isActive
+                    ? "text-white"
+                    : "text-slate-500 group-hover:text-slate-300",
                 )}
               />
               <span className="truncate">{item.label}</span>
@@ -84,14 +92,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => 
 
       {/* Bottom Info Card */}
       <div className="p-3">
-        <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/40 space-y-1">
-          <p className="font-semibold text-[11px] text-slate-200">Tauri 2.0 Platform</p>
+        <div className="p-3 bg-slate-900 rounded-xl border border-slate-700/40 space-y-1">
+          <p className="font-semibold text-[11px] text-slate-200">
+            Tauri 2.0 Platform
+          </p>
           <p className="text-[10px] text-slate-500 leading-relaxed">
             Desktop & Mobile — CARE Modular Monolith
           </p>
           <div className="flex items-center gap-1.5 mt-1.5">
             <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-            <span className="text-[10px] text-emerald-400 font-medium">API Connected</span>
+            <span className="text-[10px] text-emerald-400 font-medium">
+              API Connected
+            </span>
           </div>
         </div>
       </div>

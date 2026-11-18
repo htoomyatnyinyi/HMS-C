@@ -214,6 +214,8 @@ export const EncountersPage: React.FC = () => {
                     <p className="text-xs font-semibold text-slate-800 mt-2 line-clamp-1">
                       {enc.chiefComplaint || "General Medical Evaluation"}
                     </p>
+                    <p className="text-[11px] text-slate-500">Patient: {enc.patientName || enc.patientId.slice(0, 8)}</p>
+                    {enc.doctorName && <p className="text-[11px] text-slate-500">Doctor: {enc.doctorName}</p>}
 
                     <div className="flex items-center justify-between text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100">
                       <span className="flex items-center gap-1">

@@ -5,9 +5,8 @@ export interface Invoice {
   invoiceNo: string;
   patientId: string;
   encounterId?: string;
-  totalAmount: number;
-  paidAmount: number;
-  balanceAmount: number;
+  total: number;
+  balanceDue: number;
   status: string;
   createdAt: string;
 }
@@ -17,7 +16,7 @@ export interface Payment {
   paymentNo: string;
   invoiceId: string;
   amount: number;
-  paymentMethod: string;
+  method: string;
   paidAt: string;
 }
 

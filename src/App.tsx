@@ -12,6 +12,7 @@ import { AdmissionsPage } from "./pages/AdmissionsPage";
 import { PharmacyPage } from "./pages/PharmacyPage";
 import { LaboratoryPage } from "./pages/LaboratoryPage";
 import { BillingPage } from "./pages/BillingPage";
+import { AdminPage } from "./pages/AdminPage";
 import { ToastContainer } from "./components/ui/ToastContainer";
 
 export default function App() {
@@ -31,7 +32,7 @@ export default function App() {
   const renderContent = () => {
     switch (currentTab) {
       case "dashboard":
-        return <DashboardPage />;
+        return <DashboardPage onNavigate={setCurrentTab} />;
       case "patients":
         return <PatientsPage />;
       case "appointments":
@@ -46,6 +47,8 @@ export default function App() {
         return <LaboratoryPage />;
       case "billing":
         return <BillingPage />;
+      case "admin":
+        return <AdminPage />;
       default:
         return <DashboardPage />;
     }

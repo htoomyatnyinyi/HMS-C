@@ -10,9 +10,12 @@ import {
 } from "lucide-react";
 import { useGetPatientsQuery } from "../features/patients/patientsApi";
 import { useGetAppointmentsQuery } from "../features/appointments/appointmentsApi";
+import { useGetEncountersQuery } from "../features/encounters/encountersApi";
+import { useGetAdmissionsQuery, useGetBedsQuery } from "../features/admissions/admissionsApi";
 import { LoadingBlock } from "../components/ui/shared";
 import { getGreeting } from "../lib/utils";
 import { useAppSelector } from "../app/hooks";
+import type { NavTab } from "../components/layout/Sidebar";
 
 interface StatCard {
   label: string;
@@ -24,15 +27,21 @@ interface StatCard {
   trendUp?: boolean;
 }
 
-export const DashboardPage: React.FC = () => {
+export const DashboardPage: React.FC<{ onNavigate?: (tab: NavTab) => void }> = ({ onNavigate }) => {
   const user = useAppSelector((s) => s.auth.user);
   const { data: patientsData, isLoading: loadingPatients } =
     useGetPatientsQuery({ limit: 5 });
   const { data: appointmentsData, isLoading: loadingAppts } =
-    useGetAppointmentsQuery({});
+    useGetAppointmentsQuery({ date: new Date().toISOString().slice(0, 10) });
+  const { data: encountersData, isLoading: loadingEncounters } = useGetEncountersQuery({ status: "IN_PROGRESS" });
+  const { data: admissionsData, isLoading: loadingAdmissions } = useGetAdmissionsQuery({ status: "ADMITTED" });
+  const { data: bedsData, isLoading: loadingBeds } = useGetBedsQuery({});
 
   const pTotal = patientsData?.data?.total || 0;
   const aCount = appointmentsData?.data?.length || 0;
+  const activeConsultations = encountersData?.data?.length || 0;
+  const occupiedBeds = admissionsData?.data?.length || 0;
+  const totalBeds = bedsData?.data?.length || 0;
 
   const stats: StatCard[] = [
     {
@@ -55,7 +64,7 @@ export const DashboardPage: React.FC = () => {
     },
     {
       label: "Active Consultations",
-      value: "8",
+      value: activeConsultations,
       icon: Stethoscope,
       iconColor: "text-purple-600",
       iconBg: "bg-purple-50",
@@ -63,11 +72,11 @@ export const DashboardPage: React.FC = () => {
     },
     {
       label: "Ward Occupancy",
-      value: "72%",
+      value: totalBeds ? `${Math.round((occupiedBeds / totalBeds) * 100)}%` : "0%",
       icon: Bed,
       iconColor: "text-amber-600",
       iconBg: "bg-amber-50",
-      trend: "18 beds free",
+      trend: totalBeds ? `${Math.max(0, totalBeds - occupiedBeds)} beds free` : "No beds configured",
     },
   ];
 
@@ -97,7 +106,7 @@ export const DashboardPage: React.FC = () => {
     },
   ];
 
-  if (loadingPatients || loadingAppts) {
+  if (loadingPatients || loadingAppts || loadingEncounters || loadingAdmissions || loadingBeds) {
     return <LoadingBlock text="Loading dashboard…" />;
   }
 
@@ -163,6 +172,11 @@ export const DashboardPage: React.FC = () => {
             return (
               <button
                 key={a.label}
+                onClick={() => onNavigate?.(
+                  a.label === "Register Patient" ? "patients" :
+                  a.label === "Book Appointment" ? "appointments" :
+                  a.label === "Start Visit" ? "encounters" : "admissions",
+                )}
                 className={`p-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-colors border ${a.color}`}
               >
                 <Icon size={15} />

@@ -13,6 +13,8 @@ export interface Encounter {
   startAt: string;
   endAt?: string;
   createdAt: string;
+  patientName?: string;
+  doctorName?: string;
 }
 
 export interface ClinicalNote {

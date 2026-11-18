@@ -1,9 +1,12 @@
 import React, { useState } from "react";
-import { FlaskConical, Plus, Clock, FileSpreadsheet } from "lucide-react";
+import { FlaskConical, Plus, Clock, FileSpreadsheet, X } from "lucide-react";
 import {
   useGetLabOrdersQuery,
+  useGetLabOrderQuery,
   useGetLabTestsQuery,
   useCreateLabOrderMutation,
+  useCollectSpecimenMutation,
+  useSubmitLabResultMutation,
 } from "../features/laboratory/laboratoryApi";
 import { useGetPatientsQuery } from "../features/patients/patientsApi";
 import { useAppDispatch } from "../app/hooks";
@@ -19,9 +22,15 @@ export const LaboratoryPage: React.FC = () => {
   const { data: testsData } = useGetLabTestsQuery({});
   const { data: patientsData } = useGetPatientsQuery({ limit: 100 });
   const [createOrder, { isLoading: isCreating }] = useCreateLabOrderMutation();
+  const [collectSpecimen, { isLoading: isCollecting }] = useCollectSpecimenMutation();
+  const [submitLabResult, { isLoading: isSubmitting }] = useSubmitLabResultMutation();
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const { data: selectedOrderData } = useGetLabOrderQuery(selectedOrderId || "", { skip: !selectedOrderId });
+  const [resultForm, setResultForm] = useState({ specimenType: "Blood", valueText: "", unit: "", referenceRange: "", abnormalFlag: "", remarks: "" });
 
   const [form, setForm] = useState({
     patientId: "",
+    testId: "",
     priority: "ROUTINE",
     clinicalNotes: "",
   });
@@ -33,7 +42,7 @@ export const LaboratoryPage: React.FC = () => {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.patientId) return;
-    const test = tests[0];
+    const test = tests.find((candidate) => candidate.id === form.testId);
     if (!test) {
       dispatch(addToast({ type: "error", title: "No laboratory test", message: "Seed or create a laboratory test first" }));
       return;
@@ -47,11 +56,24 @@ export const LaboratoryPage: React.FC = () => {
         notes: form.clinicalNotes,
       }).unwrap();
       setIsModalOpen(false);
-      setForm({ patientId: "", priority: "ROUTINE", clinicalNotes: "" });
+      setForm({ patientId: "", testId: "", priority: "ROUTINE", clinicalNotes: "" });
       dispatch(addToast({ type: "success", title: "Lab Requisition Created", message: "Specimen collection pending" }));
     } catch (err: any) {
       dispatch(addToast({ type: "error", title: "Order Failed", message: err?.data?.error || "Error occurred" }));
     }
+  };
+
+  const selectedItem = selectedOrderData?.data?.items?.[0];
+  const handleCollect = async () => {
+    if (!selectedItem) return;
+    await collectSpecimen({ orderItemId: selectedItem.id, specimenType: resultForm.specimenType }).unwrap();
+  };
+  const handleSubmitResult = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedItem || !resultForm.valueText.trim()) return;
+    await submitLabResult({ orderItemId: selectedItem.id, valueText: resultForm.valueText, unit: resultForm.unit || undefined, referenceRange: resultForm.referenceRange || undefined, abnormalFlag: resultForm.abnormalFlag || undefined, remarks: resultForm.remarks || undefined }).unwrap();
+    setSelectedOrderId(null);
+    setResultForm({ specimenType: "Blood", valueText: "", unit: "", referenceRange: "", abnormalFlag: "", remarks: "" });
   };
 
   return (
@@ -103,6 +125,19 @@ export const LaboratoryPage: React.FC = () => {
               </div>
 
               <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Laboratory Test</label>
+                <select
+                  required
+                  value={form.testId}
+                  onChange={(e) => setForm({ ...form, testId: e.target.value })}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:bg-white"
+                >
+                  <option value="">-- Choose test --</option>
+                  {tests.map((test) => <option key={test.id} value={test.id}>{test.name} ({test.code})</option>)}
+                </select>
+              </div>
+
+              <div>
                 <p className="text-sm font-semibold text-slate-800">{ord.clinicalNotes || "Routine Diagnostic Specimen"}</p>
                 <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
                   <Clock size={11} /> {formatDateTime(ord.createdAt)}
@@ -111,9 +146,9 @@ export const LaboratoryPage: React.FC = () => {
 
               <div className="flex justify-between items-center pt-2 border-t border-slate-100 text-xs">
                 <span className="text-slate-500">Status: <strong className="text-slate-700">{ord.status}</strong></span>
-                <span className="text-blue-600 font-semibold cursor-pointer hover:underline flex items-center gap-1">
+                <button onClick={() => setSelectedOrderId(ord.id)} className="text-blue-600 font-semibold cursor-pointer hover:underline flex items-center gap-1">
                   <FileSpreadsheet size={13} /> View Results
-                </span>
+                </button>
               </div>
             </div>
           ))}
@@ -199,6 +234,21 @@ export const LaboratoryPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {selectedOrderId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between"><h3 className="font-bold text-slate-900">Laboratory Result</h3><button onClick={() => setSelectedOrderId(null)}><X size={18} /></button></div>
+            {!selectedItem ? <p className="text-sm text-slate-500">No order item found.</p> : <>
+              <p className="text-xs text-slate-500">Item status: <strong>{selectedItem.status}</strong></p>
+              {selectedItem.specimen && <p className="text-xs text-slate-500">Accession: <strong>{selectedItem.specimen.accessionNo}</strong></p>}
+              {selectedItem.result && <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-xs text-emerald-900"><strong>Final result:</strong> {selectedItem.result.valueText || selectedItem.result.valueNumber} {selectedItem.result.unit || ""}{selectedItem.result.referenceRange ? ` (reference: ${selectedItem.result.referenceRange})` : ""}{selectedItem.result.remarks ? ` — ${selectedItem.result.remarks}` : ""}</div>}
+              <div className="flex gap-2"><input value={resultForm.specimenType} onChange={(e) => setResultForm({ ...resultForm, specimenType: e.target.value })} className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-xs" /><button onClick={handleCollect} disabled={isCollecting} className="rounded-lg bg-slate-800 px-3 py-2 text-xs font-semibold text-white">{isCollecting ? "Collecting…" : "Collect Specimen"}</button></div>
+              <form onSubmit={handleSubmitResult} className="space-y-2 border-t border-slate-100 pt-3"><input required placeholder="Result value" value={resultForm.valueText} onChange={(e) => setResultForm({ ...resultForm, valueText: e.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs" /><div className="grid grid-cols-2 gap-2"><input placeholder="Unit" value={resultForm.unit} onChange={(e) => setResultForm({ ...resultForm, unit: e.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-xs" /><input placeholder="Reference range" value={resultForm.referenceRange} onChange={(e) => setResultForm({ ...resultForm, referenceRange: e.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-xs" /></div><input placeholder="Remarks" value={resultForm.remarks} onChange={(e) => setResultForm({ ...resultForm, remarks: e.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs" /><button disabled={isSubmitting} className="w-full rounded-lg bg-blue-600 py-2 text-xs font-semibold text-white">{isSubmitting ? "Submitting…" : "Submit Final Result"}</button></form>
+            </>}
           </div>
         </div>
       )}

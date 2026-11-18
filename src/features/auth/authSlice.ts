@@ -8,6 +8,8 @@ export interface User {
   roles: string[];
   tenantId?: string;
   hospitalId?: string;
+  phone?: string;
+  status?: string;
 }
 
 interface AuthState {
