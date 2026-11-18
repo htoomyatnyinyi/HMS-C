@@ -31,6 +31,10 @@ export const authApi = baseApi.injectEndpoints({
       query: (params) => ({ url: "/auth/users", params }),
       providesTags: ["Auth"],
     }),
+    getAuditLogs: builder.query<{ success: boolean; data: Array<{ id: string; action: string; resource: string; resourceId?: string; createdAt: string }> }, void>({
+      query: () => "/auth/audit-logs",
+      providesTags: ["Auth"],
+    }),
     createUser: builder.mutation<{ success: boolean; data: User }, { email: string; password: string; firstName: string; lastName: string; username?: string; phone?: string; role?: string }>({
       query: (body) => ({ url: "/auth/users", method: "POST", body }),
       invalidatesTags: ["Auth"],
@@ -57,4 +61,4 @@ export const authApi = baseApi.injectEndpoints({
   }),
 });
 
-export const { useLoginMutation, useGetMeQuery, useGetDoctorsQuery, useGetUsersQuery, useCreateUserMutation, useUpdateUserMutation, useGetRolesQuery, useAssignUserRoleMutation } = authApi;
+export const { useLoginMutation, useGetMeQuery, useGetDoctorsQuery, useGetUsersQuery, useCreateUserMutation, useUpdateUserMutation, useGetRolesQuery, useAssignUserRoleMutation, useGetAuditLogsQuery } = authApi;
