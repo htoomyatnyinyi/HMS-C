@@ -3,6 +3,7 @@ import { useAppSelector } from "./app/hooks";
 import { Header } from "./components/layout/Header";
 import { Sidebar, type NavTab } from "./components/layout/Sidebar";
 import { BottomNav } from "./components/layout/BottomNav";
+import { CommandPalette } from "./components/layout/CommandPalette";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { PatientsPage } from "./pages/PatientsPage";
@@ -18,6 +19,7 @@ import { ToastContainer } from "./components/ui/ToastContainer";
 export default function App() {
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
   const [currentTab, setCurrentTab] = useState<NavTab>("dashboard");
+  const [isCommandOpen, setIsCommandOpen] = useState(false);
 
   /* ─── Auth Gate ─── */
   if (!isAuthenticated) {
@@ -50,14 +52,19 @@ export default function App() {
       case "admin":
         return <AdminPage />;
       default:
-        return <DashboardPage />;
+        return <DashboardPage onNavigate={setCurrentTab} />;
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col w-full text-slate-900">
-      <Header />
+      <Header onSearchClick={() => setIsCommandOpen(true)} />
       <ToastContainer />
+      <CommandPalette
+        open={isCommandOpen}
+        onOpenChange={setIsCommandOpen}
+        onNavigate={setCurrentTab}
+      />
 
       <div className="flex flex-1 w-full">
         <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} />
