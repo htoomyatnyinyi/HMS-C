@@ -1,5 +1,16 @@
 import { baseApi } from "../api/baseApi";
 
+export interface InvoiceItem {
+  id?: string;
+  serviceCode?: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  discount?: number;
+  tax?: number;
+  total?: number;
+}
+
 export interface Invoice {
   id: string;
   invoiceNo: string;
@@ -9,6 +20,8 @@ export interface Invoice {
   balanceDue: number;
   status: string;
   createdAt: string;
+  items?: InvoiceItem[];
+  payments?: Payment[];
 }
 
 export interface Payment {
@@ -35,12 +48,23 @@ export interface CreateInvoiceInput {
 
 export const billingApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getInvoices: builder.query<{ success: boolean; data: Invoice[] }, { status?: string }>({
+    getInvoices: builder.query<
+      { success: boolean; data: Invoice[] },
+      { status?: string }
+    >({
       query: (params) => ({ url: "/billing/invoices", params }),
       providesTags: ["Invoice"],
     }),
 
-    createInvoice: builder.mutation<{ success: boolean; data: Invoice }, CreateInvoiceInput>({
+    getInvoiceById: builder.query<{ success: boolean; data: Invoice }, string>({
+      query: (id) => `/billing/invoices/${id}`,
+      providesTags: (_res, _err, id) => [{ type: "Invoice", id }],
+    }),
+
+    createInvoice: builder.mutation<
+      { success: boolean; data: Invoice },
+      CreateInvoiceInput
+    >({
       query: (body) => ({ url: "/billing/invoices", method: "POST", body }),
       invalidatesTags: ["Invoice"],
     }),
@@ -59,4 +83,9 @@ export const billingApi = baseApi.injectEndpoints({
   }),
 });
 
-export const { useGetInvoicesQuery, useCreateInvoiceMutation, useRecordPaymentMutation } = billingApi;
+export const {
+  useGetInvoicesQuery,
+  useGetInvoiceByIdQuery,
+  useCreateInvoiceMutation,
+  useRecordPaymentMutation,
+} = billingApi;

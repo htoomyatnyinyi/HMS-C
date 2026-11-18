@@ -27,6 +27,20 @@ export function formatDateTime(iso: string | undefined | null): string {
   });
 }
 
+/** Calculate age in years from date of birth */
+export function calculateAge(dob: string | undefined | null): string {
+  if (!dob) return "—";
+  const birthDate = new Date(dob);
+  if (isNaN(birthDate.getTime())) return "—";
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return `${age} yrs`;
+}
+
 /** Greeting based on current hour */
 export function getGreeting(): string {
   const h = new Date().getHours();

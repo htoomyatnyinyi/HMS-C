@@ -4,9 +4,9 @@ import {
   RefreshCw,
   Search,
   X,
-  FileText,
-  Droplet,
-  Phone as PhoneIcon,
+  Users,
+  ShieldCheck,
+  HeartPulse,
 } from "lucide-react";
 import {
   useGetPatientsQuery,
@@ -14,13 +14,27 @@ import {
   type Patient,
 } from "../features/patients/patientsApi";
 import { PatientTable } from "../components/patients/PatientTable";
-import { LoadingBlock, PageHeader, Badge } from "../components/ui/shared";
-import { formatDate } from "../lib/utils";
+import { PatientDossierDrawer } from "../components/patients/PatientDossierDrawer";
+import { LoadingBlock, PageHeader } from "../components/ui/shared";
+import { useAppDispatch } from "../app/hooks";
+import { addToast } from "../features/toast/toastSlice";
+import type { NavTab } from "../components/layout/Sidebar";
 
-export const PatientsPage: React.FC = () => {
+interface PatientsPageProps {
+  onNavigate?: (tab: NavTab) => void;
+}
+
+export const PatientsPage: React.FC<PatientsPageProps> = ({ onNavigate }) => {
+  const dispatch = useAppDispatch();
   const [page] = useState(1);
   const [search, setSearch] = useState("");
-  const { data, isLoading, refetch } = useGetPatientsQuery({ page, limit: 50, search: search || undefined });
+  const [bloodFilter, setBloodFilter] = useState<string>("ALL");
+
+  const { data, isLoading, refetch } = useGetPatientsQuery({
+    page,
+    limit: 50,
+    search: search || undefined,
+  });
   const [createPatient, { isLoading: isCreating }] = useCreatePatientMutation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -31,6 +45,8 @@ export const PatientsPage: React.FC = () => {
     lastName: "",
     gender: "MALE",
     phone: "",
+    email: "",
+    dateOfBirth: "",
     bloodGroup: "O_POS",
   });
 
@@ -38,38 +54,76 @@ export const PatientsPage: React.FC = () => {
     e.preventDefault();
     try {
       await createPatient({
-        ...form,
+        firstName: form.firstName,
+        lastName: form.lastName,
+        gender: form.gender,
+        phone: form.phone || undefined,
+        email: form.email || undefined,
+        dateOfBirth: form.dateOfBirth
+          ? new Date(form.dateOfBirth).toISOString()
+          : undefined,
+        bloodGroup: form.bloodGroup,
       }).unwrap();
+
+      dispatch(
+        addToast({
+          type: "success",
+          title: "Patient Registered",
+          message: `${form.firstName} ${form.lastName} enrolled in EHR`,
+        }),
+      );
+
       setIsModalOpen(false);
       setForm({
         firstName: "",
         lastName: "",
         gender: "MALE",
         phone: "",
+        email: "",
+        dateOfBirth: "",
         bloodGroup: "O_POS",
       });
-    } catch (err) {
-      console.error("Failed to register patient:", err);
+    } catch (err: unknown) {
+      const errorMsg =
+        err && typeof err === "object" && "data" in err
+          ? (err as { data?: { message?: string } }).data?.message
+          : "Registration failed";
+      dispatch(
+        addToast({
+          type: "error",
+          title: "Registration Failed",
+          message: errorMsg || "Failed to register patient",
+        }),
+      );
     }
   };
 
-  const patientsList = data?.data?.data || [];
+  const rawPatientsList = data?.data?.data || [];
+  const filteredPatients =
+    bloodFilter === "ALL"
+      ? rawPatientsList
+      : rawPatientsList.filter((p) => p.bloodGroup === bloodFilter);
+
+  const maleCount = rawPatientsList.filter((p) => p.gender === "MALE").length;
+  const femaleCount = rawPatientsList.filter(
+    (p) => p.gender === "FEMALE",
+  ).length;
 
   if (isLoading) {
-    return <LoadingBlock text="Loading patient directory…" />;
+    return <LoadingBlock text="Loading EHR patient directory…" />;
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* Title Bar */}
       <PageHeader
         title="Patient Directory"
-        description="Search and manage electronic health records (EHR)"
+        description="Search, view, and manage electronic health records (EHR) & dossiers"
         actions={
-          <>
+          <div className="flex items-center gap-2">
             <button
               onClick={() => refetch()}
-              className="p-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 rounded-lg text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+              className="p-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors shadow-xs"
             >
               <RefreshCw
                 size={14}
@@ -79,160 +133,180 @@ export const PatientsPage: React.FC = () => {
             </button>
             <button
               onClick={() => setIsModalOpen(true)}
-              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm shadow-blue-500/20"
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm shadow-blue-500/20 active:scale-98"
             >
               <UserPlus size={15} />
-              New Patient
+              <span>Enroll Patient</span>
             </button>
-          </>
+          </div>
         }
       />
 
-      <div className="relative max-w-md">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, MRN, or phone…" className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
-      </div>
-
-      {/* Table */}
-      <PatientTable
-        patients={patientsList}
-        onSelectPatient={(p) => setSelectedPatient(p)}
-      />
-
-      {/* Patient Detail Modal */}
-      {selectedPatient && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden">
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-5 text-white">
-              <div className="flex justify-between items-start">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center font-bold text-sm">
-                    {selectedPatient.firstName[0]}
-                    {selectedPatient.lastName[0]}
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold">
-                      {selectedPatient.firstName} {selectedPatient.lastName}
-                    </h3>
-                    <span className="text-xs text-blue-100 font-mono">
-                      {selectedPatient.mrn}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelectedPatient(null)}
-                  className="p-1 text-white/60 hover:text-white rounded-lg hover:bg-white/10"
-                >
-                  <X size={18} />
-                </button>
-              </div>
+      {/* KPI Metric Overview */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+            <Users size={18} />
+          </div>
+          <div>
+            <div className="text-lg font-bold text-slate-900 leading-tight">
+              {rawPatientsList.length}
             </div>
-
-            {/* Modal Body */}
-            <div className="p-5 space-y-3">
-              {[
-                {
-                  label: "Gender",
-                  value: selectedPatient.gender,
-                  icon: <FileText size={14} className="text-slate-400" />,
-                },
-                {
-                  label: "Contact",
-                  value: selectedPatient.phone || "Not provided",
-                  icon: <PhoneIcon size={14} className="text-slate-400" />,
-                },
-                {
-                  label: "Blood Type",
-                  value: selectedPatient.bloodGroup || "N/A",
-                  icon: <Droplet size={14} className="text-red-400" />,
-                  highlight: true,
-                },
-                {
-                  label: "Registered On",
-                  value: formatDate(selectedPatient.createdAt),
-                  icon: <FileText size={14} className="text-slate-400" />,
-                },
-              ].map((row, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0"
-                >
-                  <span className="text-xs text-slate-500 flex items-center gap-2">
-                    {row.icon} {row.label}
-                  </span>
-                  {row.highlight ? (
-                    <Badge variant="danger">{row.value}</Badge>
-                  ) : (
-                    <span className="text-xs font-medium text-slate-800">
-                      {row.value}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div className="px-5 pb-5">
-              <button
-                onClick={() => setSelectedPatient(null)}
-                className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
-              >
-                Close
-              </button>
+            <div className="text-[11px] text-slate-500 font-medium">
+              Active Directory
             </div>
           </div>
         </div>
-      )}
+
+        <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+            <ShieldCheck size={18} />
+          </div>
+          <div>
+            <div className="text-lg font-bold text-slate-900 leading-tight">
+              {maleCount}
+            </div>
+            <div className="text-[11px] text-slate-500 font-medium">
+              Male Patients
+            </div>
+          </div>
+        </div>
+
+        <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-pink-50 text-pink-600 flex items-center justify-center font-bold">
+            <HeartPulse size={18} />
+          </div>
+          <div>
+            <div className="text-lg font-bold text-slate-900 leading-tight">
+              {femaleCount}
+            </div>
+            <div className="text-[11px] text-slate-500 font-medium">
+              Female Patients
+            </div>
+          </div>
+        </div>
+
+        <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs">
+            100%
+          </div>
+          <div>
+            <div className="text-lg font-bold text-slate-900 leading-tight">
+              HIPAA
+            </div>
+            <div className="text-[11px] text-slate-500 font-medium">
+              Encrypted EHR
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter Toolbar */}
+      <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+        <div className="relative flex-1 max-w-md">
+          <Search
+            size={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search directory by name, MRN, phone…"
+            className="w-full rounded-lg border border-slate-200 bg-slate-50/50 py-2 pl-9 pr-3 text-xs shadow-xs focus:border-blue-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+          />
+        </div>
+
+        {/* Blood Group Filter Chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 text-xs">
+          <span className="text-[11px] font-semibold text-slate-400 mr-1 hidden sm:inline">
+            Blood:
+          </span>
+          {[
+            { id: "ALL", label: "All" },
+            { id: "O_POS", label: "O+" },
+            { id: "A_POS", label: "A+" },
+            { id: "B_POS", label: "B+" },
+            { id: "AB_POS", label: "AB+" },
+          ].map((bg) => (
+            <button
+              key={bg.id}
+              onClick={() => setBloodFilter(bg.id)}
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all whitespace-nowrap ${
+                bloodFilter === bg.id
+                  ? "bg-slate-900 text-white shadow-xs"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+            >
+              {bg.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* TanStack Table */}
+      <PatientTable
+        patients={filteredPatients}
+        onSelectPatient={(p) => setSelectedPatient(p)}
+      />
+
+      {/* Slide-over Patient Dossier Drawer */}
+      <PatientDossierDrawer
+        patient={selectedPatient}
+        onClose={() => setSelectedPatient(null)}
+        onNavigate={onNavigate}
+      />
 
       {/* Register Patient Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex justify-between items-center">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
               <div>
                 <h3 className="text-base font-bold text-slate-900">
                   Register New Patient
                 </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Fill in the patient demographics
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Generate a medical record number (MRN) and initiate EHR
                 </p>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleCreate} className="space-y-3">
+            <form onSubmit={handleCreate} className="space-y-3.5">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1">
-                    First Name
+                    First Name *
                   </label>
                   <input
                     required
                     type="text"
+                    placeholder="e.g. Aung"
                     value={form.firstName}
                     onChange={(e) =>
                       setForm({ ...form, firstName: e.target.value })
                     }
-                    className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:bg-white transition-colors"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:bg-white transition-colors"
                   />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1">
-                    Last Name
+                    Last Name *
                   </label>
                   <input
                     required
                     type="text"
+                    placeholder="e.g. Kyaw"
                     value={form.lastName}
                     onChange={(e) =>
                       setForm({ ...form, lastName: e.target.value })
                     }
-                    className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:bg-white transition-colors"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:bg-white transition-colors"
                   />
                 </div>
               </div>
@@ -240,14 +314,14 @@ export const PatientsPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1">
-                    Gender
+                    Gender *
                   </label>
                   <select
                     value={form.gender}
                     onChange={(e) =>
                       setForm({ ...form, gender: e.target.value })
                     }
-                    className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:bg-white transition-colors"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:bg-white transition-colors"
                   >
                     <option value="MALE">Male</option>
                     <option value="FEMALE">Female</option>
@@ -263,7 +337,7 @@ export const PatientsPage: React.FC = () => {
                     onChange={(e) =>
                       setForm({ ...form, bloodGroup: e.target.value })
                     }
-                    className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:bg-white transition-colors"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:bg-white transition-colors"
                   >
                     <option value="A_POS">A+</option>
                     <option value="A_NEG">A-</option>
@@ -277,33 +351,63 @@ export const PatientsPage: React.FC = () => {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                    Date of Birth
+                  </label>
+                  <input
+                    type="date"
+                    value={form.dateOfBirth}
+                    onChange={(e) =>
+                      setForm({ ...form, dateOfBirth: e.target.value })
+                    }
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:bg-white transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={form.phone}
+                    onChange={(e) =>
+                      setForm({ ...form, phone: e.target.value })
+                    }
+                    placeholder="09..."
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:bg-white transition-colors"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Phone Number
+                  Email Address
                 </label>
                 <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  placeholder="09..."
-                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:bg-white transition-colors"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  placeholder="patient@example.com"
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:bg-white transition-colors"
                 />
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-50 transition-colors"
+                  className="flex-1 py-2 border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isCreating}
-                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold disabled:opacity-50 shadow-sm shadow-blue-500/20 transition-colors"
+                  className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold disabled:opacity-50 shadow-sm shadow-blue-500/20 transition-colors"
                 >
-                  {isCreating ? "Saving…" : "Register Patient"}
+                  {isCreating ? "Registering…" : "Register Patient"}
                 </button>
               </div>
             </form>

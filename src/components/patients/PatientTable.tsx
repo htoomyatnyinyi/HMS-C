@@ -14,10 +14,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
+  ExternalLink,
+  Calendar,
 } from "lucide-react";
 import type { Patient } from "../../features/patients/patientsApi";
 import { Badge, EmptyState } from "../ui/shared";
-import { cn } from "../../lib/utils";
+import { cn, calculateAge, formatDate } from "../../lib/utils";
 
 interface PatientTableProps {
   patients: Patient[];
@@ -52,47 +54,100 @@ export const PatientTable: React.FC<PatientTableProps> = ({
           <ArrowUpDown size={13} />
         </button>
       ),
-      cell: (info) => (
-        <span className="font-medium text-slate-900">
-          {info.getValue() as string}
-        </span>
-      ),
+      cell: (info) => {
+        const p = info.row.original;
+        return (
+          <div className="flex items-center gap-2.5">
+            <div
+              className={cn(
+                "w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs uppercase text-white shadow-xs",
+                p.gender === "FEMALE"
+                  ? "bg-linear-to-br from-pink-500 to-rose-600"
+                  : "bg-linear-to-br from-blue-500 to-indigo-600",
+              )}
+            >
+              {p.firstName[0]}
+              {p.lastName[0]}
+            </div>
+            <div>
+              <div className="font-semibold text-slate-900 leading-tight">
+                {info.getValue() as string}
+              </div>
+              <div className="text-[11px] text-slate-400">
+                Reg: {formatDate(p.createdAt)}
+              </div>
+            </div>
+          </div>
+        );
+      },
     },
     {
       accessorKey: "gender",
-      header: "Gender",
+      header: "Gender / Age",
       cell: (info) => {
-        const g = info.getValue() as string;
-        return <Badge variant={g === "FEMALE" ? "info" : "neutral"}>{g}</Badge>;
+        const p = info.row.original;
+        return (
+          <div className="flex items-center gap-2">
+            <Badge variant={p.gender === "FEMALE" ? "info" : "neutral"}>
+              {p.gender}
+            </Badge>
+            {p.dateOfBirth && (
+              <span className="text-xs text-slate-600 font-medium">
+                {calculateAge(p.dateOfBirth)}
+              </span>
+            )}
+          </div>
+        );
       },
     },
     {
       accessorKey: "phone",
       header: "Contact",
-      cell: (info) => (
-        <span className="text-slate-600 text-xs flex items-center gap-1">
-          {(info.getValue() as string) ? (
-            <>
-              <Phone size={11} className="text-slate-400" />
-              {info.getValue() as string}
-            </>
-          ) : (
-            <span className="text-slate-300">—</span>
-          )}
-        </span>
-      ),
+      cell: (info) => {
+        const val = info.getValue() as string;
+        return (
+          <span className="text-slate-600 text-xs flex items-center gap-1.5 font-mono">
+            {val ? (
+              <>
+                <Phone size={11} className="text-slate-400" />
+                {val}
+              </>
+            ) : (
+              <span className="text-slate-300 font-sans">—</span>
+            )}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "bloodGroup",
-      header: "Blood",
+      header: "Blood Group",
       cell: (info) => {
         const bg = info.getValue() as string;
         return bg ? (
-          <Badge variant="danger">{bg.replace("_", "")}</Badge>
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+            {bg.replace("_", "")}
+          </span>
         ) : (
-          <span className="text-slate-300 text-xs">N/A</span>
+          <span className="text-slate-300 text-xs">—</span>
         );
       },
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: (info) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelectPatient?.(info.row.original);
+          }}
+          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
+        >
+          <span>EHR Dossier</span>
+          <ExternalLink size={12} />
+        </button>
+      ),
     },
   ];
 
@@ -125,19 +180,21 @@ export const PatientTable: React.FC<PatientTableProps> = ({
             type="text"
             value={globalFilter ?? ""}
             onChange={(e) => setGlobalFilter(e.target.value)}
-            placeholder="Search by name or MRN…"
-            className="w-full pl-9 pr-3.5 py-2 text-sm bg-white border border-slate-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 transition-shadow"
+            placeholder="Quick filter table by name, MRN, phone…"
+            className="w-full pl-9 pr-3.5 py-2 text-sm bg-white border border-slate-200 rounded-lg shadow-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-shadow"
           />
         </div>
-        <span className="text-xs text-slate-400 whitespace-nowrap">
-          {rowCount} of {patients.length} patients
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-400 whitespace-nowrap">
+            Showing {rowCount} of {patients.length} registered
+          </span>
+        </div>
       </div>
 
       {/* 🖥️ Desktop Table */}
-      <div className="hidden md:block overflow-hidden bg-white rounded-xl border border-slate-200/80 shadow-sm">
+      <div className="hidden md:block overflow-hidden bg-white rounded-xl border border-slate-200 shadow-xs">
         <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50/80 border-b border-slate-200 text-[11px] text-slate-500 uppercase tracking-wider">
+          <thead className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 uppercase tracking-wider">
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id}>
                 {hg.headers.map((h) => (
@@ -154,7 +211,7 @@ export const PatientTable: React.FC<PatientTableProps> = ({
                 <tr
                   key={row.id}
                   onClick={() => onSelectPatient?.(row.original)}
-                  className="hover:bg-blue-50/40 cursor-pointer transition-colors"
+                  className="hover:bg-blue-50/50 cursor-pointer transition-colors"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className="px-4 py-3">
@@ -170,9 +227,12 @@ export const PatientTable: React.FC<PatientTableProps> = ({
               <tr>
                 <td
                   colSpan={columns.length}
-                  className="px-4 py-10 text-center text-slate-400 text-sm"
+                  className="px-4 py-12 text-center text-slate-400 text-sm"
                 >
-                  No patients found
+                  <EmptyState
+                    title="No matching patients"
+                    description="No patient records match the current filter criteria."
+                  />
                 </td>
               </tr>
             )}
@@ -189,11 +249,18 @@ export const PatientTable: React.FC<PatientTableProps> = ({
               <div
                 key={row.id}
                 onClick={() => onSelectPatient?.(p)}
-                className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-sm active:bg-blue-50 transition-colors cursor-pointer space-y-2.5"
+                className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs active:bg-blue-50 transition-colors cursor-pointer space-y-3"
               >
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-700 flex items-center justify-center font-bold text-xs border border-blue-200/50">
+                    <div
+                      className={cn(
+                        "w-9 h-9 rounded-full text-white flex items-center justify-center font-bold text-xs uppercase shadow-xs",
+                        p.gender === "FEMALE"
+                          ? "bg-linear-to-br from-pink-500 to-rose-600"
+                          : "bg-linear-to-br from-blue-500 to-indigo-600",
+                      )}
+                    >
                       {p.firstName[0]}
                       {p.lastName[0]}
                     </div>
@@ -206,19 +273,32 @@ export const PatientTable: React.FC<PatientTableProps> = ({
                       </span>
                     </div>
                   </div>
-                  <Badge variant={p.gender === "FEMALE" ? "info" : "neutral"}>
-                    {p.gender}
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant={p.gender === "FEMALE" ? "info" : "neutral"}>
+                      {p.gender}
+                    </Badge>
+                    {p.bloodGroup && (
+                      <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                        {p.bloodGroup.replace("_", "")}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-                  <span className="flex items-center gap-1">
-                    <Phone size={12} /> {p.phone || "No phone"}
+                  <span className="flex items-center gap-1 font-mono">
+                    <Phone size={12} className="text-slate-400" />{" "}
+                    {p.phone || "No phone"}
                   </span>
-                  {p.bloodGroup && (
-                    <Badge variant="danger">
-                      {p.bloodGroup.replace("_", "")}
-                    </Badge>
+                  {p.dateOfBirth ? (
+                    <span className="flex items-center gap-1">
+                      <Calendar size={12} className="text-slate-400" />
+                      {calculateAge(p.dateOfBirth)}
+                    </span>
+                  ) : (
+                    <span className="text-blue-600 font-semibold flex items-center gap-1">
+                      View EHR <ChevronRight size={13} />
+                    </span>
                   )}
                 </div>
               </div>
@@ -238,9 +318,9 @@ export const PatientTable: React.FC<PatientTableProps> = ({
           onClick={() => table.previousPage()}
           disabled={!table.getCanPreviousPage()}
           className={cn(
-            "flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors",
+            "flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors",
             table.getCanPreviousPage()
-              ? "text-slate-600 bg-white border-slate-200 hover:bg-slate-50"
+              ? "text-slate-700 bg-white border-slate-200 hover:bg-slate-50 shadow-xs"
               : "text-slate-300 bg-slate-50 border-slate-100 cursor-not-allowed",
           )}
         >
@@ -249,7 +329,7 @@ export const PatientTable: React.FC<PatientTableProps> = ({
 
         <span className="text-xs text-slate-500">
           Page{" "}
-          <span className="font-semibold text-slate-700">
+          <span className="font-semibold text-slate-800">
             {table.getState().pagination.pageIndex + 1}
           </span>{" "}
           of {table.getPageCount() || 1}
@@ -259,9 +339,9 @@ export const PatientTable: React.FC<PatientTableProps> = ({
           onClick={() => table.nextPage()}
           disabled={!table.getCanNextPage()}
           className={cn(
-            "flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors",
+            "flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors",
             table.getCanNextPage()
-              ? "text-slate-600 bg-white border-slate-200 hover:bg-slate-50"
+              ? "text-slate-700 bg-white border-slate-200 hover:bg-slate-50 shadow-xs"
               : "text-slate-300 bg-slate-50 border-slate-100 cursor-not-allowed",
           )}
         >
