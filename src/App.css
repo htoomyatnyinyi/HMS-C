@@ -15,8 +15,7 @@
   line-height: 1.5;
   font-weight: 400;
   color: #0f172a;
-  background-color: #0f172a;
-  /* background-color: #f8fafc; */
+  background-color: #f8fafc;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -28,6 +27,7 @@ body {
   display: flex;
   min-width: 320px;
   min-height: 100vh;
+  background-color: #f8fafc;
 }
 
 #root {
@@ -57,24 +57,41 @@ main {
 
 /* Focus ring utility for keyboard nav */
 *:focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid #2563eb;
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 /* Toast slide-in animation */
 @keyframes slideIn {
   from {
     opacity: 0;
-    transform: translateX(16px);
+    transform: translateY(-8px) scale(0.96);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0) scale(1);
   }
 }
 
 /* Safe area for mobile bottom nav */
 .safe-area-pb {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Glassmorphism helpers */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.glass-dropdown {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow:
+    0 10px 25px -5px rgba(15, 23, 42, 0.08),
+    0 8px 10px -6px rgba(15, 23, 42, 0.04);
 }
