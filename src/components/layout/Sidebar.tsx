@@ -12,6 +12,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useAppSelector } from "../../app/hooks";
 
 export type NavTab =
   | "dashboard"
@@ -52,11 +53,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentTab,
   onTabChange,
 }) => {
+  const roles = useAppSelector((state) => state.auth.user?.roles || []);
+  const visibleItems = navItems.filter((item) => item.id !== "admin" || roles.includes("ADMIN") || roles.includes("SUPER_ADMIN"));
   return (
     <aside className="w-56  hidden md:flex flex-col justify-between shrink-0 h-[calc(100vh-3.5rem)] sticky top-14">
       {/* Nav Items */}
       <nav className="p-3 space-y-0.5 overflow-y-auto">
-        {navItems.map((item) => {
+        {visibleItems.map((item) => {
           const isActive = currentTab === item.id;
           const Icon = item.icon;
           return (
